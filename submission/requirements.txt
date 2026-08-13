@@ -1,0 +1,2 @@
+# Intentionally empty: PARC supplies torch 2.11+cu130, FastAPI, NumPy, and msgpack.
+# LeRobot, the patched Transformers build, tokenizer bindings, and safetensors are vendored offline.

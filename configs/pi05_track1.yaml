@@ -1,0 +1,42 @@
+seed: 1000
+
+model:
+  train_expert_only: true
+  gradient_checkpointing: true
+  compile_model: false
+  dtype: bfloat16
+
+dataset:
+  episodes: null
+  video_backend: torchcodec
+  bottleneck_size: 128
+  restore_feature_resolution: true
+  task_balanced: true
+
+augmentation:
+  enabled: true
+  brightness: 0.12
+  contrast: 0.12
+  saturation: 0.10
+  hue: 0.025
+  gamma: 0.10
+  sharpness: 0.0
+
+training:
+  batch_size: 1
+  num_workers: 2
+  steps: 1000000
+  hours: 7
+  learning_rate: 1.0e-5
+  betas: [0.9, 0.95]
+  eps: 1.0e-8
+  weight_decay: 0.01
+  grad_clip_norm: 1.0
+  save_freq: 500
+  resume: true
+
+evaluation:
+  checkpoint_candidates: 3
+  horizons: [5, 8, 10]
+  episode: 0
+  frame: 0

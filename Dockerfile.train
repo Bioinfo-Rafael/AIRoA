@@ -1,0 +1,92 @@
+# syntax=docker/dockerfile:1.7
+FROM --platform=linux/amd64 nvidia/cuda:13.0.3-cudnn-devel-ubuntu22.04@sha256:6b285b08f9cf4e466fa010f333cb07bc166fc9d4e59554603fb25504ea0807d2
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG LEROBOT_SHA=8fff0fde7c79f23a93d845d1a50e985de01f8b8a
+ARG TRANSFORMERS_SHA=dcddb970176382c0fcf4521b0c0e6fc15894dfe0
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    HF_HOME=/cache/huggingface \
+    HF_LEROBOT_HOME=/data/lerobot \
+    HF_HUB_DISABLE_XET=1 \
+    PYTHONPATH=/workspace/src \
+    TOKENIZERS_PARALLELISM=false
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 python3.10-dev python3.10-venv python3-pip \
+    build-essential ca-certificates cmake ffmpeg git git-lfs libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.10 /usr/local/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/local/bin/pip
+
+WORKDIR /opt/src
+RUN git init transformers \
+    && git -C transformers remote add origin https://github.com/huggingface/transformers.git \
+    && git -C transformers fetch --depth 1 origin "${TRANSFORMERS_SHA}" \
+    && git -C transformers checkout --detach FETCH_HEAD \
+    && test "$(git -C transformers rev-parse HEAD)" = "${TRANSFORMERS_SHA}" \
+    && git init lerobot \
+    && git -C lerobot remote add origin https://github.com/huggingface/lerobot.git \
+    && git -C lerobot fetch --depth 1 origin "${LEROBOT_SHA}" \
+    && git -C lerobot checkout --detach FETCH_HEAD \
+    && test "$(git -C lerobot rev-parse HEAD)" = "${LEROBOT_SHA}"
+
+COPY docker/requirements.lock.txt docker/constraints.txt /opt/locks/
+RUN python -m pip install --upgrade "pip==25.2" "wheel==0.45.1" "setuptools==80.9.0" \
+    && python -m pip install --index-url https://download.pytorch.org/whl/cu130 \
+       --extra-index-url https://pypi.org/simple --no-deps \
+       "torch==2.11.0+cu130" "torchvision==0.26.0+cu130" "torchcodec==0.11.1+cu130" \
+    && python -m pip install --retries 10 -r /opt/locks/requirements.lock.txt \
+    && mkdir -p /opt/wheelhouse \
+    && python -m pip wheel --no-deps /opt/src/transformers -w /opt/wheelhouse \
+    && python -m pip wheel --no-deps /opt/src/lerobot -w /opt/wheelhouse \
+    && python -m pip install --no-deps /opt/wheelhouse/transformers-4.53.3-*.whl \
+    && python -m pip install --no-deps /opt/wheelhouse/lerobot-0.4.4-*.whl
+
+# v0.4.4 eagerly imports every policy family, so importing the π0.5 submodule
+# otherwise requires unrelated GR00T/diffusers/PEFT extras. Keep the official
+# π0.5 implementation intact and narrow only the parent package import surface.
+RUN python - <<'PY'
+from pathlib import Path
+import lerobot
+path = Path(lerobot.__file__).parent / "policies" / "__init__.py"
+path.write_text('"""AIRoA minimal policy import boundary for pinned LeRobot v0.4.4."""\n')
+pretrained = path.parent / "pretrained.py"
+source = pretrained.read_text()
+needle = "from lerobot.configs.train import TrainPipelineConfig\n"
+if source.count(needle) != 1:
+    raise RuntimeError("Pinned PreTrainedPolicy import boundary changed")
+pretrained.write_text(source.replace(needle, "TrainPipelineConfig = object  # runtime-unused type annotation\n"))
+teleoperators = Path(lerobot.__file__).parent / "teleoperators" / "__init__.py"
+teleoperators.write_text('"""AIRoA minimal teleoperator import boundary; policy runtime uses only events."""\n')
+PY
+
+RUN python - <<'PY'
+import platform
+import torch
+import torchvision
+import torchcodec
+import transformers
+import lerobot
+from transformers.models.siglip import check
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.policies.pi05.modeling_pi05 import PI05Policy
+from lerobot.processor import PolicyProcessorPipeline
+assert platform.machine() == "x86_64", platform.machine()
+assert torch.__version__ == "2.11.0+cu130", torch.__version__
+assert torchvision.__version__ == "0.26.0+cu130", torchvision.__version__
+assert transformers.__version__ == "4.53.3", transformers.__version__
+assert check.check_whether_transformers_replace_is_installed_correctly()
+print("pinned pi05 imports: OK", PI05Policy.__name__)
+print("dataset/processor imports: OK", LeRobotDataset.__name__, PolicyProcessorPipeline.__name__)
+PY
+
+WORKDIR /workspace
+COPY pyproject.toml /workspace/pyproject.toml
+COPY src /workspace/src
+RUN python -m pip install --no-deps /workspace
+
+CMD ["bash"]

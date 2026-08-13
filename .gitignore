@@ -1,0 +1,37 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Large/generated artifacts
+/artifacts/*
+!artifacts/.gitkeep
+/cache/
+/data/
+/outputs/
+submission/model_weights/pi05/*
+!submission/model_weights/pi05/.gitkeep
+!submission/model_weights/pi05/runtime_config.json
+submission/vendor/
+submission/wheelhouse/
+submission.zip
+*.zip
+*.safetensors
+*.pt
+*.pth
+*.mp4
+*.parquet
+
+# Cached upstream repositories and secrets
+/external/
+.env
+.env.*
+*.pem
+*.key
+token
+credentials.json
