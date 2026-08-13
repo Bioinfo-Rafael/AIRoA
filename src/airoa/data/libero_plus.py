@@ -223,6 +223,10 @@ def make_dataset(
     augmentation: PhotometricConfig,
     tolerance_s: float = 1e-4,
 ) -> TransformedDataset:
+    if video_backend in {"pyav", "video_reader"}:
+        from airoa.data.pyav_compat import install_pyav_decoder_compat
+        install_pyav_decoder_compat()
+
     from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 
     metadata = LeRobotDatasetMetadata(DATASET_ID, revision=DATASET_REVISION)

@@ -8,7 +8,7 @@ model:
 
 dataset:
   episodes: null
-  video_backend: torchcodec
+  video_backend: pyav
   bottleneck_size: 128
   restore_feature_resolution: true
   task_balanced: true

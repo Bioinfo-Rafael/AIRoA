@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Never send local policy-server health/reset/act requests through the host HTTP proxy.
+export NO_PROXY="${NO_PROXY:+$NO_PROXY,}127.0.0.1,localhost,0.0.0.0"
+export no_proxy="${no_proxy:+$no_proxy,}127.0.0.1,localhost,0.0.0.0"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="${1:-$ROOT/artifacts/submission.zip}"
 bash "$ROOT/scripts/setup_env.sh"
