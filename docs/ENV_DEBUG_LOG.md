@@ -62,6 +62,17 @@
 - Final fix: explicitly override to torchcodec 0.11.1+cu130 after the no-deps LeRobot installation. Keep PyAV
   configurable as a fallback and require a real episode-0 decode in smoke.
 
+## Direct PyAV fallback on torchvision 0.26
+
+- Symptom: the checkpoint sweep's explicit `video_backend="pyav"` failed because
+  `torchvision.io.VideoReader` no longer exists in torchvision 0.26.
+- Cause: LeRobot v0.4.4 labels the route as PyAV but delegates decoding to torchvision's removed video API.
+- Attempt: reproduced the failure on a real LIBERO-Plus episode under the pinned training image and inspected
+  LeRobot's exact decoder dispatch.
+- Result: PyAV 15.1.0 itself decoded the same episode, timestamps, two cameras, and unpadded 50x7 action target.
+- Final fix: for the explicit `pyav` backend only, install a direct PyAV nearest-timestamp decoder at LeRobot's
+  two decoder import sites. The default torchcodec training path is unchanged.
+
 ## Gated PaliGemma tokenizer
 
 - Symptom: anonymous requests to the processor's `google/paligemma-3b-pt-224` tokenizer return HTTP 401.

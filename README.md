@@ -101,6 +101,23 @@ LIBERO-Plus batch. It records action MSE, latency, CUDA memory, action norm, xyz
 gripper flips, trajectory/rotation length, and SPARC proxy. `success` and `collision` are explicitly null for
 this offline gate; they are not fabricated. Actual success/collision require a simulator rollout.
 
+For a deterministic inference-only sweep over the pinned base model plus checkpoints 1000, 3000, 5000, 8000,
+10000, 11500, and 12131, run the following inside the training container on a CUDA host. This uses two distinct
+interior samples from every one of the 40 tasks, direct PyAV decoding, augmentation disabled, and horizons
+5/8/10. Missing checkpoints are reported without stopping the remaining candidates. The sweep writes only below
+`artifacts/checkpoint_sweep/`; it does not train, build a submission, or replace `selected_model.json`.
+
+```bash
+python scripts/evaluate_checkpoint_sweep.py \
+  --output-dir outputs/pi05_track1 \
+  --samples-per-task 2 \
+  --artifacts-dir artifacts/checkpoint_sweep
+```
+
+Increase coverage with `--samples-per-task 5`. Each checkpoint is loaded exactly once and is then used for all
+selected samples before CUDA memory is released. The same deterministic noise sequence is replayed for every
+checkpoint so comparisons are paired.
+
 The pipeline creates:
 
 ```text
